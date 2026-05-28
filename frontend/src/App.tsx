@@ -12,6 +12,10 @@ function App() {
   const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const selectedPackages = packages.filter(p => manualSelected.includes(p.id));
+  const selectedWeight = selectedPackages.reduce((sum, p) => sum + p.weight, 0);
+  const selectedValue = selectedPackages.reduce((sum, p) => sum + p.value, 0);
+
   function addPackage() {
     if (!form.id || !form.weight || !form.value) return;
 
@@ -125,6 +129,11 @@ function App() {
             </li>
           ))}
         </ul>
+        {manualSelected.length > 0 && (
+          <p>
+            Peso total seleccionado: {selectedWeight} kg / {capacity} kg, Valor total seleccionado: {selectedValue}
+          </p>
+        )}
         <button onClick={verify} disabled={manualSelected.length === 0}>Verificar Selección Manual</button>
       </section>
 
