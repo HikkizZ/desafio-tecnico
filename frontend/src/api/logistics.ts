@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Package, PlanResponse, VerifyResponse } from '../types/index.js';
 
-const API_URL = 'http://localhost:3000/logistics';
+const API_URL = '/logistics';
 
 export async function planLoad(capacity: number, packages: Package[]): Promise<PlanResponse> {
     const { data } = await axios.post<PlanResponse>(`${API_URL}/plan`, { capacity, packages });
