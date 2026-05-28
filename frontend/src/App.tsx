@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import './App.css'
-import type { Package, PlanResponse } from './types/index.js';
-import axios from 'axios';
+import type { Package, PlanResponse, VerifyResponse } from './types/index.js';
+import { planLoad, verifyLoad } from './api/logistics.js';
 
 function App() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [capacity, setCapacity] = useState<number>(0);
   const [form, setForm] = useState({ id: '', weight: '', value: '' });
+  const [manualSelected, setManualSelected] = useState<string[]>([]);
   const [result, setResult] = useState<PlanResponse | null>(null);
+  const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function addPackage() {
@@ -19,20 +21,53 @@ function App() {
 
   function removePackage(id: string) {
     setPackages(packages.filter(p => p.id !== id));
+    setManualSelected(manualSelected.filter(s => s !== id));
   };
+
+  function toggleSelect(id: string) {
+    setManualSelected(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  }
 
   async function simulate() {
     setError(null);
     setResult(null);
+    setVerifyResult(null);
+
+    if (capacity <= 0) {
+      setError('La capacidad debe ser mayor a 0');
+      return;
+    }
+
+    if (packages.length === 0) {
+      setError('Debe agregar al menos un paquete antes de simular');
+      return;
+    }
 
     try {
-      const { data } = await axios.post<PlanResponse>('http://localhost:3000/logistics/plan', { capacity, packages });
-
-      if (data.total_weight > capacity) {
-        setError('¡Exceso de capacidad! !Riesgo de seguridad en ruta!');
-        return;
-      }
+      const data = await planLoad(capacity, packages);
       setResult(data);
+    } catch {
+      setError('Internal Server Error');
+    }
+  }
+
+  async function verify() {
+    setError(null);
+    setVerifyResult(null);
+
+    const selectedPkgs = packages.filter(p => manualSelected.includes(p.id));
+    const totalWeight = selectedPkgs.reduce((sum, p) => sum + p.weight, 0);
+
+    if (totalWeight > capacity) {
+      setError('¡Exceso de capacidad! Riesgo de seguridad en ruta');
+      return;
+    }
+
+    try {
+      const data = await verifyLoad(capacity, manualSelected, packages);
+      setVerifyResult(data);
     } catch {
       setError('Internal Server Error');
     }
@@ -80,11 +115,17 @@ function App() {
         <ul>
           {packages.map(p => (
             <li key={p.id}>
+                <input
+                  type="checkbox"
+                  checked={manualSelected.includes(p.id)}
+                  onChange={() => toggleSelect(p.id)}
+                />
               {p.id} - Peso: {p.weight} kg, Valor: {p.value}
               <button onClick={() => removePackage(p.id)}>Eliminar</button>
             </li>
           ))}
         </ul>
+        <button onClick={verify} disabled={manualSelected.length === 0}>Verificar Selección Manual</button>
       </section>
 
       <button onClick={simulate}>Simular Carga</button>
@@ -99,8 +140,17 @@ function App() {
           <p>Peso total: {result.total_weight} kg</p>
         </div>
       )}
-      </div>
-  )
+
+      {verifyResult && (
+        <div className="result">
+          <h2>Resultado de la selección manual</h2>
+          <p>{verifyResult.message}</p>
+          {!verifyResult.optimal && 
+            <p>Mejor valor posible: {verifyResult.best_possible_value}</p>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default App

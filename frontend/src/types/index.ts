@@ -9,3 +9,9 @@ export interface PlanResponse {
     total_value: number;
     total_weight: number;
 }
+
+export interface VerifyResponse {
+    optimal: boolean;
+    message: string;
+    best_possible_value?: number;
+}
