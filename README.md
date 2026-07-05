@@ -8,10 +8,16 @@ El problema es el **Problema de la mochila**. Cada paquete se carga completo o n
 
 La solución que implementé fue utilizar **Programación Dinámica** con una tabla `dp[i][w]` que almacena el valor máximo que se puede alcanzar usando los primeros `i` paquetes con capacidad `w`.
 
+## Funcionalidades
+
+- **Inventario de paquetes**: alta de paquetes con peso y valor, con resumen de cantidad, peso total y valor total.
+- **Simular carga**: dada una capacidad de furgoneta, calcula automáticamente la combinación de paquetes que maximiza el valor sin exceder el peso disponible.
+- **Verificar selección manual**: permite marcar a mano los paquetes a cargar y valida si esa selección es óptima respecto al mejor valor posible para la capacidad indicada.
+
 ## Stack
 
 - **Backend**: Node.js + Express + Typescript
-- **Frontend**: React + Vite + Typescript
+- **Frontend**: React + Vite + Typescript + Tailwind CSS
 
 ## Requisitos
 
@@ -20,11 +26,11 @@ La solución que implementé fue utilizar **Programación Dinámica** con una ta
 
 ## Instalación y Ejecución
 
-## Docker
+### Docker
 
 En la raiz del proyecto ejecutar `docker-compose up --build`
 
-## Desarrollador
+### Desarrollador
 
 Dentro de la carpeta backend ejecutar:
 
