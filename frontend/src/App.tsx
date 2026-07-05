@@ -1,165 +1,180 @@
-import { useState } from 'react'
-import './App.css'
-import type { Package, PlanResponse, VerifyResponse } from './types/index.js';
-import { planLoad, verifyLoad } from './api/logistics.js';
+import { useMemo, useState, type ReactNode } from 'react'
+import { Truck, Sparkles, ListChecks } from 'lucide-react'
+import type { Package } from './types/index.js'
+import { cn, formatCurrency } from './lib/utils'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from './components/ui/Card'
+import { AddPackageForm } from './components/AddPackageForm'
+import { SimularPanel } from './components/SimularPanel'
+import { VerificarPanel } from './components/VerificarPanel'
+
+type Flujo = 'simular' | 'verificar'
 
 function App() {
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [capacity, setCapacity] = useState<number>(0);
-  const [form, setForm] = useState({ id: '', weight: '', value: '' });
-  const [manualSelected, setManualSelected] = useState<string[]>([]);
-  const [result, setResult] = useState<PlanResponse | null>(null);
-  const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [packages, setPackages] = useState<Package[]>([])
+  const [capacity, setCapacity] = useState(0)
+  const [flujo, setFlujo] = useState<Flujo>('simular')
+  const [contador, setContador] = useState(0)
 
-  const selectedPackages = packages.filter(p => manualSelected.includes(p.id));
-  const selectedWeight = selectedPackages.reduce((sum, p) => sum + p.weight, 0);
-  const selectedValue = selectedPackages.reduce((sum, p) => sum + p.value, 0);
-
-  function addPackage() {
-    if (!form.id || !form.weight || !form.value) return;
-
-    setPackages([...packages, { id: form.id, weight: Number(form.weight), value: Number(form.value) }]);
-    setForm({ id: '', weight: '', value: '' });
+  const addPackage = (weight: number, value: number) => {
+    const nuevo: Package = {
+      id: `PKG-${String(contador + 1).padStart(2, '0')}`,
+      weight,
+      value,
+    }
+    setPackages((prev) => [...prev, nuevo])
+    setContador((c) => c + 1)
   }
 
-  function removePackage(id: string) {
-    setPackages(packages.filter(p => p.id !== id));
-    setManualSelected(manualSelected.filter(s => s !== id));
-  };
-
-  function toggleSelect(id: string) {
-    setManualSelected(prev =>
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
+  const removePackage = (id: string) => {
+    setPackages((prev) => prev.filter((p) => p.id !== id))
   }
 
-  async function simulate() {
-    setError(null);
-    setResult(null);
-    setVerifyResult(null);
-
-    if (capacity <= 0) {
-      setError('La capacidad debe ser mayor a 0');
-      return;
+  const { totalWeight, totalValue } = useMemo(() => {
+    return {
+      totalWeight: packages.reduce((s, p) => s + p.weight, 0),
+      totalValue: packages.reduce((s, p) => s + p.value, 0),
     }
-
-    if (packages.length === 0) {
-      setError('Debe agregar al menos un paquete antes de simular');
-      return;
-    }
-
-    try {
-      const data = await planLoad(capacity, packages);
-      setResult(data);
-    } catch {
-      setError('Internal Server Error');
-    }
-  }
-
-  async function verify() {
-    setError(null);
-    setVerifyResult(null);
-
-    const selectedPkgs = packages.filter(p => manualSelected.includes(p.id));
-    const totalWeight = selectedPkgs.reduce((sum, p) => sum + p.weight, 0);
-
-    if (totalWeight > capacity) {
-      setError('¡Exceso de capacidad! Riesgo de seguridad en ruta');
-      return;
-    }
-
-    try {
-      const data = await verifyLoad(capacity, manualSelected, packages);
-      setVerifyResult(data);
-    } catch {
-      setError('Internal Server Error');
-    }
-  }
+  }, [packages])
 
   return (
-    <div className="container">
-      <h1>Gestión de Paquetes</h1>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold leading-tight">Operación Logística de Última Milla</h1>
+            <p className="text-xs text-muted-foreground">
+              Optimización de carga para furgonetas
+            </p>
+          </div>
+        </div>
+      </header>
 
-      <section>
-        <h2>Configuración de carga</h2>
-        <input
-          type="number"
-          placeholder="Capacidad máxima (kg)"
-          value={capacity}
-          onChange={(e) => setCapacity(Number(e.target.value))}
-        />
-      </section>
-      
-      <section>
-        <h2>Agregar Paquete</h2>
-        <input
-          placeholder="ID"
-          value={form.id}
-          onChange={(e) => setForm({ ...form, id: e.target.value })}
-        />
-        <input
-          type="number"
-          placeholder="Peso (kg)"
-          value={form.weight}
-          onChange={(e) => setForm({ ...form, weight: e.target.value })}
-        />
-        <input
-          type="number"
-          placeholder="Valor"
-          value={form.value}
-          onChange={(e) => setForm({ ...form, value: e.target.value })}
-        />
-        <button onClick={addPackage}>Agregar</button>
-      </section>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <section className="mb-6 grid gap-4 sm:grid-cols-3">
+          <SummaryTile
+            label="Paquetes"
+            value={String(packages.length)}
+            hint="en el inventario"
+          />
+          <SummaryTile
+            label="Peso total"
+            value={`${totalWeight.toLocaleString('es-ES')} kg`}
+            hint="de todos los paquetes"
+          />
+          <SummaryTile
+            label="Valor total"
+            value={formatCurrency(totalValue)}
+            hint="del inventario completo"
+          />
+        </section>
 
-      <section>
-        <h2>Paquetes del día</h2>
-        {packages.length === 0 && <p>No hay paquetes agregados.</p>}
-        <ul>
-          {packages.map(p => (
-            <li key={p.id}>
-                <input
-                  type="checkbox"
-                  checked={manualSelected.includes(p.id)}
-                  onChange={() => toggleSelect(p.id)}
-                />
-              {p.id} - Peso: {p.weight} kg, Valor: {p.value}
-              <button onClick={() => removePackage(p.id)}>Eliminar</button>
-            </li>
-          ))}
-        </ul>
-        {manualSelected.length > 0 && (
-          <p>
-            Peso total seleccionado: {selectedWeight} kg / {capacity} kg, Valor total seleccionado: {selectedValue}
-          </p>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Agregar paquete</CardTitle>
+            <CardDescription>
+              Registra un paquete con su peso y valor.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AddPackageForm onAdd={addPackage} />
+          </CardContent>
+        </Card>
+
+        <div className="mb-5 inline-flex rounded-xl border border-border bg-card p-1">
+          <TabButton
+            active={flujo === 'simular'}
+            onClick={() => setFlujo('simular')}
+            icon={<Sparkles className="h-4 w-4" />}
+          >
+            Simular
+          </TabButton>
+          <TabButton
+            active={flujo === 'verificar'}
+            onClick={() => setFlujo('verificar')}
+            icon={<ListChecks className="h-4 w-4" />}
+          >
+            Verificar
+          </TabButton>
+        </div>
+
+        {flujo === 'simular' ? (
+          <SimularPanel
+            packages={packages}
+            capacity={capacity}
+            onCapacityChange={setCapacity}
+            onDelete={removePackage}
+          />
+        ) : (
+          <VerificarPanel
+            packages={packages}
+            capacity={capacity}
+            onCapacityChange={setCapacity}
+          />
         )}
-        <button onClick={verify} disabled={manualSelected.length === 0}>Verificar Selección Manual</button>
-      </section>
+      </main>
 
-      <button onClick={simulate}>Simular Carga</button>
-
-      {error && <div className="alert">{error}</div>}
-
-      {result && (
-        <div className="result">
-          <h2>Resultado de la Simulación</h2>
-          <p>Paquetes seleccionados: {result.selected_packages.join(', ')}</p>
-          <p>Valor total: {result.total_value}</p>
-          <p>Peso total: {result.total_weight} kg</p>
-        </div>
-      )}
-
-      {verifyResult && (
-        <div className="result">
-          <h2>Resultado de la selección manual</h2>
-          <p>{verifyResult.message}</p>
-          {!verifyResult.optimal && 
-            <p>Mejor valor posible: {verifyResult.best_possible_value}</p>}
-        </div>
-      )}
+      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-muted-foreground sm:px-6">
+        Desafío Técnico - Gestión de carga para furgonetas.
+      </footer>
     </div>
-  );
+  )
+}
+
+function SummaryTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string
+  hint: string
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+        active
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  )
 }
 
 export default App
